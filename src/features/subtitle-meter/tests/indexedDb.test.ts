@@ -40,4 +40,18 @@ describe("IndexedDB project storage", () => {
     db.close();
     expect(await readProject()).toBeNull();
   });
+
+  it("serializes concurrent writes so the newest content is what lands on disk", async () => {
+    const writes = Array.from({ length: 12 }, (_, index) =>
+      writeProject({
+        ...sample,
+        updatedAt: index + 1,
+        cues: [{ ...sample.cues[0], text: `rev-${index + 1}` }],
+      }),
+    );
+    await Promise.all(writes);
+    const stored = await readProject();
+    expect(stored?.updatedAt).toBe(12);
+    expect(stored?.cues[0].text).toBe("rev-12");
+  });
 });

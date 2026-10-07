@@ -5,12 +5,17 @@ export function ImportModule({
   notice,
   phase,
   fileName,
+  saveError,
+  saving,
 }: {
   vm: SubtitleMeterViewModel;
   notice: string;
   phase: string;
   fileName?: string;
+  saveError?: boolean;
+  saving?: boolean;
 }) {
+  const noticeError = phase === "error" || saveError === true;
   const onFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) void vm.importFile(file);
@@ -34,14 +39,22 @@ export function ImportModule({
         <span>拖放或点击选择 · SRT / WebVTT</span>
       </label>
       <div className="file-status">
-        <span className="status-dot" />
+        <span className={`status-dot ${saveError ? "error" : ""}`} />
         {fileName ?? "等待文件导入"}
-        <span className="file-size">{fileName ? "已保存到本机" : "UTF-8"}</span>
+        <span className={`file-size ${saveError ? "file-size-error" : ""}`}>
+          {!fileName
+            ? "UTF-8"
+            : saveError
+              ? "保存失败"
+              : saving
+                ? "正在保存…"
+                : "已保存到本机"}
+        </span>
       </div>
       {notice && (
         <div
-          className={`notice ${phase === "error" ? "error" : ""}`}
-          role="status"
+          className={`notice ${noticeError ? "error" : ""}`}
+          role={noticeError ? "alert" : "status"}
         >
           {notice}
         </div>

@@ -1,13 +1,15 @@
-import type { Format, SubtitleProject } from "../models";
+import type { Format } from "../models";
+import type { SubtitleProject } from "../models";
 import type { SubtitleMeterViewModel } from "../viewmodels/subtitleMeterViewModel";
+import { SaveStatus } from "./SaveStatus";
 export function VersionExportModule({
   project,
   vm,
-  phase,
+  state,
 }: {
   project: SubtitleProject;
   vm: SubtitleMeterViewModel;
-  phase: string;
+  state: ReturnType<SubtitleMeterViewModel["getSnapshot"]>;
 }) {
   return (
     <section className="module version-module">
@@ -16,7 +18,7 @@ export function VersionExportModule({
           <span className="module-kicker">04 / VERSIONS & EXPORT</span>
           <h2>版本与交付</h2>
         </div>
-        <span className="saved-label">● 自动保存</span>
+        <SaveStatus state={state} vm={vm} variant="pill" />
       </div>
       <div className="version-row">
         <div>
@@ -61,12 +63,20 @@ export function VersionExportModule({
         </label>
         <button
           className="export-button"
-          disabled={phase === "exporting"}
+          disabled={state.exporting}
           onClick={() => void vm.exportFile()}
         >
-          导出字幕 <span>↓</span>
+          {state.exporting ? "正在导出…" : "导出字幕"} <span>↓</span>
         </button>
       </div>
+      {state.notice && (
+        <div
+          className={`notice ${state.notice.includes("失败") ? "error" : ""}`}
+          role="status"
+        >
+          {state.notice}
+        </div>
+      )}
       <p className="privacy-note">字幕文件与项目版本仅保存在当前浏览器</p>
     </section>
   );

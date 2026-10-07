@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { ImportModule } from "../components/ImportModule";
 import { InspectionModule } from "../components/InspectionModule";
 import { PreviewModule } from "../components/PreviewModule";
+import { SaveStatus } from "../components/SaveStatus";
 import { TimelineModule } from "../components/TimelineModule";
 import { VersionExportModule } from "../components/VersionExportModule";
 import { createViewModel } from "../viewmodels/subtitleMeterViewModel";
@@ -20,6 +21,12 @@ export function SubtitleMeter() {
   const [activeTab, setActiveTab] = useState<TabId>("import");
   useEffect(() => {
     void vm.restore();
+  }, [vm]);
+  useEffect(() => {
+    // 仍有未落盘改动时拦截关闭/刷新，避免最后一次编辑丢失
+    window.addEventListener("beforeunload", vm.guardBeforeUnload);
+    return () =>
+      window.removeEventListener("beforeunload", vm.guardBeforeUnload);
   }, [vm]);
   const project = state.project;
   const selected =
@@ -55,6 +62,7 @@ export function SubtitleMeter() {
           </span>
         </a>
         <div className="topbar-right">
+          <SaveStatus state={state} vm={vm} variant="pill" />
           <span className="local-pill">
             <i /> 所有处理均在本地
           </span>
@@ -105,6 +113,19 @@ export function SubtitleMeter() {
           </button>
         ))}
       </nav>
+      {(state.saveState === "error" || state.notice) &&
+        (activeTab === "timeline" || activeTab === "inspection") && (
+          <div
+            className={`global-notice ${state.saveState === "error" ? "error" : ""}`}
+            role={state.saveState === "error" ? "alert" : "status"}
+          >
+            {state.saveState === "error" && state.project ? (
+              <SaveStatus state={state} vm={vm} variant="bar" />
+            ) : (
+              state.notice
+            )}
+          </div>
+        )}
       <section
         id="module-panel"
         className="module-panel"
@@ -118,6 +139,8 @@ export function SubtitleMeter() {
               notice={state.notice}
               phase={state.phase}
               fileName={project?.name}
+              saveError={state.saveState === "error"}
+              saving={state.saveState === "saving"}
             />
             {project ? (
               <section className="module project-overview">
@@ -126,7 +149,8 @@ export function SubtitleMeter() {
                   <h2>{project.name}</h2>
                   <p>
                     {project.cues.length} 条字幕 ·{" "}
-                    {project.format.toUpperCase()} · 已自动保存到此浏览器
+                    {project.format.toUpperCase()} ·{" "}
+                    <SaveStatus state={state} vm={vm} variant="pill" />
                   </p>
                 </div>
                 <div className="overview-count">
@@ -192,11 +216,7 @@ export function SubtitleMeter() {
         {activeTab === "delivery" &&
           (project ? (
             <div className="module-page delivery-page">
-              <VersionExportModule
-                project={project}
-                vm={vm}
-                phase={state.phase}
-              />
+              <VersionExportModule project={project} vm={vm} state={state} />
               <section className="module delivery-summary">
                 <span className="module-kicker">EXPORT CHECK</span>
                 <strong>
