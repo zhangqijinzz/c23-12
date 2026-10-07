@@ -40,4 +40,39 @@ describe("IndexedDB project storage", () => {
     db.close();
     expect(await readProject()).toBeNull();
   });
+
+  it("serializes concurrent writes so the last scheduled write is the last on disk", async () => {
+    const project = (text: string, updatedAt: number): SubtitleProject => ({
+      ...sample,
+      cues: [{ ...sample.cues[0], text }],
+      updatedAt,
+    });
+
+    // 不 await：连续触发，模拟快速编辑
+    const writes = [
+      writeProject(project("first", 1)),
+      writeProject(project("second", 2)),
+      writeProject(project("third", 3)),
+    ];
+    await Promise.all(writes);
+
+    const restored = await readProject();
+    expect(restored?.cues[0].text).toBe("third");
+    expect(restored?.updatedAt).toBe(3);
+  });
+
+  it("keeps reading consistent with the preceding writes through the queue", async () => {
+    await writeProject({
+      ...sample,
+      cues: [{ ...sample.cues[0], text: "latest-on-disk" }],
+    });
+    const readDuring = readProject();
+    const writeAfter = writeProject({
+      ...sample,
+      cues: [{ ...sample.cues[0], text: "even-newer" }],
+    });
+    expect((await readDuring)?.cues[0].text).toBe("latest-on-disk");
+    await writeAfter;
+    expect((await readProject())?.cues[0].text).toBe("even-newer");
+  });
 });

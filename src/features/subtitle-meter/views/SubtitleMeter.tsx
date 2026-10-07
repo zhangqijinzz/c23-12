@@ -21,6 +21,20 @@ export function SubtitleMeter() {
   useEffect(() => {
     void vm.restore();
   }, [vm]);
+  // 仍有改动在写入或上次保存失败时，关闭/刷新页面会导致重开后与最后一次编辑不一致，
+  // 此时提醒用户先等保存完成或重试
+  useEffect(() => {
+    const dirty =
+      !!state.project &&
+      (state.saveStatus === "saving" || state.saveStatus === "error");
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [state.project, state.saveStatus]);
   const project = state.project;
   const selected =
     project?.cues.find((cue) => cue.id === state.selectedId) ??
@@ -83,6 +97,37 @@ export function SubtitleMeter() {
           </strong>
         </div>
       </section>
+      {project && (
+        <div
+          className={`save-banner ${state.saveStatus}`}
+          role={state.saveStatus === "error" ? "alert" : "status"}
+        >
+          {state.saveStatus === "saving" && (
+            <span>
+              <i className="save-spinner" /> 正在保存到本机…
+              {state.saveError &&
+                `（仍有未保存成功的改动：${state.saveError.action}）`}
+            </span>
+          )}
+          {state.saveStatus === "saved" && (
+            <span>
+              <i className="save-dot saved" /> 已保存到本机
+            </span>
+          )}
+          {state.saveStatus === "error" && state.saveError && (
+            <span className="save-error-text">
+              <i className="save-dot error" />
+              {`本地保存失败——「${state.saveError.action}」未写入磁盘，刷新会丢失该改动（${state.saveError.message}）`}
+              <button
+                className="save-retry-button"
+                onClick={() => void vm.retrySave()}
+              >
+                重试保存
+              </button>
+            </span>
+          )}
+        </div>
+      )}
       <nav className="module-tabs" role="tablist" aria-label="字幕校对模块">
         {tabs.map((tab) => (
           <button
@@ -126,7 +171,10 @@ export function SubtitleMeter() {
                   <h2>{project.name}</h2>
                   <p>
                     {project.cues.length} 条字幕 ·{" "}
-                    {project.format.toUpperCase()} · 已自动保存到此浏览器
+                    {project.format.toUpperCase()} ·{" "}
+                    {state.saveStatus === "error"
+                      ? "最近改动尚未保存成功，请重试"
+                      : "已自动保存到此浏览器"}
                   </p>
                 </div>
                 <div className="overview-count">
@@ -196,6 +244,7 @@ export function SubtitleMeter() {
                 project={project}
                 vm={vm}
                 phase={state.phase}
+                saveStatus={state.saveStatus}
               />
               <section className="module delivery-summary">
                 <span className="module-kicker">EXPORT CHECK</span>

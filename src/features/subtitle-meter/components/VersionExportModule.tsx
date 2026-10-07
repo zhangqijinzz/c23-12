@@ -1,13 +1,21 @@
-import type { Format, SubtitleProject } from "../models";
+import type { Format, SaveStatus, SubtitleProject } from "../models";
 import type { SubtitleMeterViewModel } from "../viewmodels/subtitleMeterViewModel";
+const saveLabel: Record<SaveStatus, string> = {
+  idle: "○ 尚未保存",
+  saving: "◐ 正在保存…",
+  saved: "● 已保存到本机",
+  error: "✕ 保存失败，请重试",
+};
 export function VersionExportModule({
   project,
   vm,
   phase,
+  saveStatus,
 }: {
   project: SubtitleProject;
   vm: SubtitleMeterViewModel;
   phase: string;
+  saveStatus: SaveStatus;
 }) {
   return (
     <section className="module version-module">
@@ -16,7 +24,9 @@ export function VersionExportModule({
           <span className="module-kicker">04 / VERSIONS & EXPORT</span>
           <h2>版本与交付</h2>
         </div>
-        <span className="saved-label">● 自动保存</span>
+        <span className={`saved-label save-status-${saveStatus}`} role="status">
+          {saveLabel[saveStatus]}
+        </span>
       </div>
       <div className="version-row">
         <div>
